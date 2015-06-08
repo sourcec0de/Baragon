@@ -63,11 +63,15 @@ public class ElbManager {
         LoadBalancerDescription elb = elbByName(elbName);
         if (elb.getInstances().contains(instance)) {
           DeregisterInstancesFromLoadBalancerRequest request = new DeregisterInstancesFromLoadBalancerRequest(elbName, Arrays.asList(instance));
-          try {
-            elbClient.deregisterInstancesFromLoadBalancer(request);
-            LOG.info(String.format("Deregistered instance %s from ELB %s", request.getInstances(), request.getLoadBalancerName()));
-          } catch (AmazonClientException e) {
-            LOG.error("Could not register %s with elb %s due to error %s", request.getInstances(), request.getLoadBalancerName(), e);
+          if (configuration.get().isRemoveLastHealthyEnabled() || !isLastHealthyInstance(request)) {
+            try {
+              elbClient.deregisterInstancesFromLoadBalancer(request);
+              LOG.info(String.format("Deregistered instance %s from ELB %s", request.getInstances(), request.getLoadBalancerName()));
+            } catch (AmazonClientException e) {
+              LOG.error("Could not register %s with elb %s due to error %s", request.getInstances(), request.getLoadBalancerName(), e);
+            }
+          } else {
+            LOG.info(String.format("Will not deregister %s because it is the last healthy instance!", request.getInstances()));
           }
         } else {
           LOG.debug(String.format("Agent %s already registered with ELB %s", agent.getAgentId(), elbName));
